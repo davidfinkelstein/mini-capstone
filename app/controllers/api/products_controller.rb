@@ -1,7 +1,21 @@
 class Api::ProductsController < ApplicationController #Api:: <=== namespace
 
+  before_action :authenticate_admin, except: [:index, :show]
+
   def index
-    @products = Product.all
+
+    @products = Product.all.order(:id)
+
+    if params[:name]
+      @products = Product.where("name LIKE ?", "%#{params[:name]}%") 
+    end
+
+    if params[:price_sort]
+      @products = @products.order(price: :asc)
+    else
+      @products = @products.order(id: :asc)
+    end
+
     render 'index.json.jbuilder'
   end
 
@@ -19,9 +33,16 @@ class Api::ProductsController < ApplicationController #Api:: <=== namespace
     @product = Product.create(
       name: params[:name],
       price: params[:price],
-      description: params[:description]
+      description: params[:description],
+      in_stock: params[:in_stock],
+      supplier_id: params[:supplier_id],
+      image: params[:image]
       )
-    render 'show.json.jbuilder'
+    if @product.save
+      render 'show.json.jbuilder' #happy path
+    else
+      render json: {errors: @product.errors.full_messages}, status: :unprocessable_entity # sad path
+    end
   end
 
   def update
@@ -31,11 +52,16 @@ class Api::ProductsController < ApplicationController #Api:: <=== namespace
       #.save
       @product.name = params[:name] || @product.name
       @product.price = params[:price] || @product.price
-      @product.image_url = params[:image_url] || @product.image_url
+      @product.image = params[:image_url] || @product.image
       @product.description = params[:description] || @product.description
+      @product.in_stock = params[:in_stock] || @product.in_stock
+      @product.supplier_id = params[:supplier_id] || @product.supplier_id
       
-      @product.save
-    render 'show.json.jbuilder'
+    if @product.save
+      render 'show.json.jbuilder' #happy path
+    else
+      render json: {errors: @product.errors.full_messages}, status: :unprocessable_entity # sad path
+    end
   end
 
   def destroy
